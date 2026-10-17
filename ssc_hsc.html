@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>महाराष्ट्र राज्य मंडळ (SSC/HSC) - फोटो आणि स्वाक्षरी क्रॉपर</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Noto Sans Devanagari & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Cropper.js for Precision Manual Cropping -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <!-- JSZip for generating 18-image ZIP file -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        body {
+            font-family: 'Noto Sans Devanagari', 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        /* Interactive Sheet Canvas Styling */
+        .sheet-canvas-wrapper {
+            position: relative;
+            overflow: auto;
+            max-height: 760px;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 16px 16px;
+            background-color: #f8fafc;
+            user-select: none;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #64748b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .cropper-view-box,
+        .cropper-face {
+            border-radius: 2px;
+        }
+        .checkerboard {
+            background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+                              linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+                              linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+            background-size: 12px 12px;
+            background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="bg-gradient-to-r from-indigo-900 via-blue-800 to-indigo-900 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-amber-400 text-indigo-950 flex items-center justify-center font-bold text-xl shadow-md">
+                    <i class="fa-solid fa-id-card-clip"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-amber-400 text-indigo-950 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">SSC / HSC Board</span>
+                        <h1 class="text-lg md:text-xl font-bold tracking-tight">महाराष्ट्र राज्य मंडळ - फोटो व स्वाक्षरी क्रॉपर</h1>
+                    </div>
+                    <p class="text-xs text-blue-200">एकाच फॉर्म पेजवरील ९ फोटो (&lt; 40 KB) आणि ९ स्वाक्षरी (&lt; 10 KB) क्रॉप व ZIP डाउनलोड टूल</p>
+                </div>
+            </div>
+
+            <!-- Live Summary & Main ZIP Action in Header -->
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="hidden sm:flex items-center gap-3 bg-indigo-950/60 border border-indigo-700 px-3 py-1.5 rounded-lg text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span>
+                        <span>फोटो: <strong id="headerPhotoStatus" class="text-white">0/9 (&lt;40KB)</strong></span>
+                    </div>
+                    <span class="text-indigo-500">|</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>
+                        <span>स्वाक्षरी: <strong id="headerSignStatus" class="text-white">0/9 (&lt;10KB)</strong></span>
+                    </div>
+                </div>
+
+                <button id="topDownloadZipBtn" onclick="downloadAllAsZip()" disabled class="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 text-sm">
+                    <i class="fa-solid fa-file-zipper"></i>
+                    <span>ZIP डाउनलोड करा (18 इमेजेस)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toast Notification Box -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 space-y-6">
+
+        <!-- Step-by-step Quick Guide Banner -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs md:text-sm">
+                <div class="flex items-start gap-3 p-2.5 rounded-xl bg-blue-50/70 border border-blue-100">
+                    <span class="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center shrink-0">1</span>
+                    <div>
+                        <p class="font-bold text-slate-800">स्कॅन पेज अपलोड करा</p>
+                        <p class="text-xs text-slate-600">९ विद्यार्थ्यांचे फोटो व सही असलेला स्कॅन केलेला फॉर्म निवडा.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100">
+                    <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center shrink-0">2</span>
+                    <div>
+                        <p class="font-bold text-slate-800">ऑटो ३x३ ग्रीड किंवा बॉक्स हलवा</p>
+                        <p class="text-xs text-slate-600">पेजवरील निळे (फोटो) व हिरवे (सही) बॉक्स माऊसने ड्रॅग करून सेट करा.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-2.5 rounded-xl bg-amber-50/70 border border-amber-100">
+                    <span class="w-7 h-7 rounded-lg bg-amber-600 text-white font-bold flex items-center justify-center shrink-0">3</span>
+                    <div>
+                        <p class="font-bold text-slate-800">मॅन्युअल क्रॉप (आवश्यक असल्यास)</p>
+                        <p class="text-xs text-slate-600">कोणत्याही फोटो/सही खालील <b>"मॅन्युअल क्रॉप"</b> बटणाने अचूक क्रॉप करा.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                    <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0">4</span>
+                    <div>
+                        <p class="font-bold text-slate-800">१८ इमेजेसची ZIP डाउनलोड करा</p>
+                        <p class="text-xs text-slate-600">सर्व फोटो &lt; 40 KB आणि सह्या &lt; 10 KB मध्ये आपोआप सेव्ह होतात.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Control Bar: Upload + Compression Settings + Naming Options -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left 5 Cols: File Upload & Demo Sheet -->
+            <div class="lg:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2 mb-1">
+                        <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i>
+                        <span>१. स्कॅन केलेला फॉर्म अपलोड करा (Upload Sheet)</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mb-3">तुमचा ९ विद्यार्थ्यांचा स्कॅन केलेला JPG/PNG फॉर्म येथे टाका</p>
+
+                    <label for="sheetFileInput" id="dropZone" class="border-2 border-dashed border-blue-400 hover:border-blue-600 bg-blue-50/50 hover:bg-blue-50 transition rounded-xl p-5 flex flex-col items-center justify-center text-center cursor-pointer group">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 group-hover:bg-blue-200 text-blue-700 flex items-center justify-center text-xl mb-2 transition">
+                            <i class="fa-solid fa-file-image"></i>
+                        </div>
+                        <span class="text-sm font-bold text-blue-900">स्कॅन केलेली इमेज निवडण्यासाठी येथे क्लिक करा</span>
+                        <span class="text-xs text-slate-500 mt-0.5">किंवा इमेज फाईल येथे ड्रॅग अँड ड्रॉप करा (JPG, JPEG, PNG)</span>
+                        <input type="file" id="sheetFileInput" accept="image/*" class="hidden" onchange="handleFileUpload(event)" />
+                    </label>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="loadSampleFormSheet()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-2 rounded-lg border border-indigo-200 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>नमुना फॉर्म लोड करा (Test Demo Sheet)</span>
+                    </button>
+
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="rotateMainSheet(-90)" title="डावीकडे फिरवा" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-2 rounded-lg transition">
+                            <i class="fa-solid fa-rotate-left"></i> 90°
+                        </button>
+                        <button type="button" onclick="rotateMainSheet(90)" title="उजवीकडे फिरवा" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-2 rounded-lg transition">
+                            <i class="fa-solid fa-rotate-right"></i> 90°
+                        </button>
+                        <button type="button" onclick="resetAutoGridBoxes()" title="ऑटो ३x३ बॉक्स रीसेट करा" class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-medium px-2.5 py-2 rounded-lg transition">
+                            <i class="fa-solid fa-table-cells"></i> ग्रीड रीसेट
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right 7 Cols: SSC Board Size Limits & ZIP Settings -->
+            <div class="lg:col-span-7 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between gap-4">
+                <div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-600"></i>
+                            <span>२. साईज नियंत्रण आणि ZIP फाईल सेटिंग्स (SSC/HSC नियम)</span>
+                        </h2>
+                        <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold px-2.5 py-0.5 rounded-full">
+                            <i class="fa-solid fa-circle-check"></i> ऑटो KB साईज कंट्रोल चालू आहे
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <!-- Photo Max KB Setting -->
+                        <div class="p-3 rounded-xl bg-sky-50/70 border border-sky-200">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-sky-950">प्रत्येक फोटोची कमाल साईज</label>
+                                <span class="text-xs font-bold bg-sky-600 text-white px-2 py-0.5 rounded">&lt; 40 KB</span>
+                            </div>
+                            <select id="photoMaxKbSelect" onchange="reprocessAllCrops()" class="w-full text-xs bg-white border border-sky-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <option value="38" selected>कमाल 38 KB (SSC सुरक्षित मर्यादा &lt; 40 KB)</option>
+                                <option value="35">कमाल 35 KB (अति-सुरक्षित)</option>
+                                <option value="30">कमाल 30 KB</option>
+                                <option value="20">कमाल 20 KB</option>
+                            </select>
+                            <div class="mt-2 flex items-center justify-between text-[11px] text-slate-600">
+                                <span>आकार (Dimensions):</span>
+                                <select id="photoDimSelect" onchange="reprocessAllCrops()" class="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] font-medium">
+                                    <option value="240x280" selected>240 × 280 px (Standard)</option>
+                                    <option value="200x230">200 × 230 px (Passport)</option>
+                                    <option value="300x350">300 × 350 px (High Clear)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Signature Max KB Setting -->
+                        <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-emerald-950">प्रत्येक स्वाक्षरी साईज</label>
+                                <span class="text-xs font-bold bg-emerald-600 text-white px-2 py-0.5 rounded">&lt; 10 KB</span>
+                            </div>
+                            <select id="signMaxKbSelect" onchange="reprocessAllCrops()" class="w-full text-xs bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="9.2" selected>कमाल 9.5 KB (SSC सुरक्षित मर्यादा &lt; 10 KB)</option>
+                                <option value="8.5">कमाल 8.5 KB (अति-सुरक्षित)</option>
+                                <option value="7.5">कमाल 7.5 KB</option>
+                            </select>
+                            <div class="mt-2 flex items-center justify-between text-[11px] text-slate-600">
+                                <span>आकार (Dimensions):</span>
+                                <select id="signDimSelect" onchange="reprocessAllCrops()" class="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] font-medium">
+                                    <option value="220x80" selected>220 × 80 px (Standard)</option>
+                                    <option value="180x70">180 × 70 px (Compact)</option>
+                                    <option value="256x64">256 × 64 px (Wide Box)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Batch / Page Naming & Signature Contrast -->
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 block mb-1">पेज क्र. / ZIP फाईल नाव:</label>
+                                <input type="text" id="pageBatchName" value="SSC_Page_001" placeholder="उदा. SSC_Page_001" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                            <label class="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                                <input type="checkbox" id="enhanceSignContrast" onchange="reprocessAllCrops()" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" />
+                                <span class="text-xs font-medium text-slate-700">स्वाक्षरी अधिक गडद/स्पष्ट करा</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Naming Format & Re-crop Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-semibold text-slate-600">ZIP मधील फाईल नाव पद्धत:</span>
+                        <select id="fileNamingPattern" class="bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800">
+                            <option value="roll_type">RollNo_Photo.jpg &amp; RollNo_Sign.jpg (उदा. 01_Photo.jpg)</option>
+                            <option value="num_type">1_Photo.jpg &amp; 1_Sign.jpg (क्र. 1 ते 9 नुसार)</option>
+                            <option value="name_type">RollNo_Name_Photo.jpg (उदा. 01_Jay_Kale_Photo.jpg)</option>
+                            <option value="folders">वेगवेगळे फोल्डर: Photos/ व Signatures/ फोल्डरमध्ये</option>
+                        </select>
+                    </div>
+
+                    <button type="button" onclick="reprocessAllCrops(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>सर्व १८ इमेजेस पुन्हा क्रॉप करा</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace: Left = Interactive Full Form Sheet with 18 Draggable/Resizable Boxes | Right = 9 Students Cropped Cards -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Left Column (5 Cols on large screens): Full Uploaded Sheet + Interactive 18 Boxes Overlay -->
+            <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:sticky lg:top-20">
+                <div class="p-4 bg-slate-800 text-white flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-sm font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-vector-square text-amber-400"></i>
+                            <span>स्कॅन केलेला मूळ फॉर्म (Interactive 3×3 Grid)</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-300">तुम्ही कोणताही <span class="text-sky-300 font-semibold">निळा (फोटो)</span> किंवा <span class="text-emerald-300 font-semibold">हिरवा (स्वाक्षरी)</span> बॉक्स माऊसने सरकवू (Drag) किंवा लहान-मोठा करू शकता.</p>
+                    </div>
+                </div>
+
+                <!-- Quick Global Grid Fine-Tuner Bar -->
+                <div class="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-slate-700">संपूर्ण ग्रीड सरकवा:</span>
+                        <button onclick="nudgeAllBoxes(0, -0.008)" title="वर सरकवा" class="px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50"><i class="fa-solid fa-arrow-up"></i></button>
+                        <button onclick="nudgeAllBoxes(0, 0.008)" title="खाली सरकवा" class="px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50"><i class="fa-solid fa-arrow-down"></i></button>
+                        <button onclick="nudgeAllBoxes(-0.008, 0)" title="डावीकडे सरकवा" class="px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50"><i class="fa-solid fa-arrow-left"></i></button>
+                        <button onclick="nudgeAllBoxes(0.008, 0)" title="उजवीकडे सरकवा" class="px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50"><i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-600">बॉक्स आकार:</span>
+                        <button onclick="scaleAllBoxes(0.96, 'photo')" class="px-2 py-1 bg-sky-50 border border-sky-200 text-sky-800 rounded hover:bg-sky-100 font-medium">फोटो -</button>
+                        <button onclick="scaleAllBoxes(1.04, 'photo')" class="px-2 py-1 bg-sky-50 border border-sky-200 text-sky-800 rounded hover:bg-sky-100 font-medium">फोटो +</button>
+                        <button onclick="scaleAllBoxes(0.96, 'sign')" class="px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded hover:bg-emerald-100 font-medium">सही -</button>
+                        <button onclick="scaleAllBoxes(1.04, 'sign')" class="px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded hover:bg-emerald-100 font-medium">सही +</button>
+                    </div>
+                </div>
+
+                <!-- Interactive Canvas Container -->
+                <div class="sheet-canvas-wrapper p-3 flex items-center justify-center">
+                    <div id="interactiveSheetContainer" class="relative inline-block shadow-md border border-slate-300 bg-white">
+                        <canvas id="mainSheetCanvas" class="block max-w-full h-auto cursor-crosshair"></canvas>
+                    </div>
+                </div>
+
+                <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                    <span><i class="fa-solid fa-hand-pointer text-indigo-600 mr-1"></i> टीप: बॉक्सच्या कोपऱ्यावर पकडून साईज बदला किंवा डबल-क्लिक करून झूम क्रॉपर उघडा.</span>
+                </div>
+            </div>
+
+            <!-- Right Column (7 Cols on large screens): 9 Students Cropped Photos & Signatures Grid -->
+            <div class="lg:col-span-7 space-y-4">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-users-viewfinder text-indigo-600"></i>
+                            <span>क्रॉप केलेले ९ विद्यार्थी (९ फोटो + ९ स्वाक्षरी = १८ इमेजेस)</span>
+                        </h3>
+                        <p class="text-xs text-slate-500">कोणताही फोटो किंवा स्वाक्षरी मॅन्युअली क्रॉप करण्यासाठी त्याखालील <strong>"मॅन्युअल क्रॉप"</strong> बटणावर क्लिक करा.</p>
+                    </div>
+
+                    <button onclick="downloadAllAsZip()" id="midDownloadZipBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 text-xs sm:text-sm">
+                        <i class="fa-solid fa-download"></i>
+                        <span>सर्व १८ इमेजेस डाउनलोड करा (ZIP)</span>
+                    </button>
+                </div>
+
+                <!-- 9 Student Cards Container -->
+                <div id="studentsGridContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <!-- Populated dynamically by JS -->
+                </div>
+
+                <!-- Bottom Sticky / Prominent ZIP Download Banner -->
+                <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="space-y-1 text-center sm:text-left">
+                        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                                <i class="fa-solid fa-check-double mr-1"></i> SSC/HSC बोर्डाच्या साईजप्रमाणे तयार
+                            </span>
+                            <span id="bottomSummaryText" class="text-xs text-slate-300">९ फोटो (&lt; 40 KB) आणि ९ स्वाक्षरी (&lt; 10 KB)</span>
+                        </div>
+                        <h4 class="text-base md:text-lg font-bold">सर्व १८ क्रॉप केलेल्या इमेजेस एकाच ZIP फाईलमध्ये डाउनलोड करा</h4>
+                        <p class="text-xs text-slate-400">डाउनलोड केलेल्या ZIP फाईलमध्ये प्रत्येक विद्यार्थ्याचा फोटो आणि स्वाक्षरी स्वतंत्र JPG फाईलमध्ये मिळेल.</p>
+                    </div>
+
+                    <button onclick="downloadAllAsZip()" class="w-full sm:w-auto shrink-0 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold px-6 py-3.5 rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2.5 text-sm">
+                        <i class="fa-solid fa-file-zipper text-lg"></i>
+                        <span>ZIP फाईल डाउनलोड करा (18 Files)</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MANUAL PRECISION CROPPER MODAL (Using Cropper.js) -->
+    <div id="manualCropModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-6">
+        <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            <!-- Modal Header -->
+            <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span id="modalBadge" class="px-2.5 py-1 rounded-lg bg-sky-500 text-white font-bold text-xs">विद्यार्थी #1</span>
+                    <div>
+                        <h3 id="modalTitle" class="font-bold text-sm sm:text-base">मॅन्युअल फोटो क्रॉपिंग (Manual Precision Cropper)</h3>
+                        <p id="modalSubtitle" class="text-xs text-slate-300">क्रॉप बॉक्स अचूक सेट करा - सेव्ह केल्यावर साईज आपोआप 40 KB च्या आत राहील</p>
+                    </div>
+                </div>
+                <button onclick="closeManualCropModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body: Cropper Area -->
+            <div class="p-4 bg-slate-950 flex-1 overflow-hidden flex items-center justify-center min-h-[340px] max-h-[62vh]">
+                <img id="cropperModalImage" src="" alt="Crop Target" class="max-w-full max-h-full block" />
+            </div>
+
+            <!-- Modal Toolbar & Controls -->
+            <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <!-- Left Tools: Zoom, Rotate, Aspect Ratio -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" onclick="cropperZoom(0.15)" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition" title="झूम इन">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i> झूम +
+                    </button>
+                    <button type="button" onclick="cropperZoom(-0.15)" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition" title="झूम आउट">
+                        <i class="fa-solid fa-magnifying-glass-minus"></i> झूम -
+                    </button>
+                    <button type="button" onclick="cropperRotate(-90)" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition" title="डावीकडे फिरवा">
+                        <i class="fa-solid fa-rotate-left"></i> -90°
+                    </button>
+                    <button type="button" onclick="cropperRotate(90)" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition" title="उजवीकडे फिरवा">
+                        <i class="fa-solid fa-rotate-right"></i> +90°
+                    </button>
+                    <button type="button" onclick="cropperRotate(-1)" class="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition" title="थोडे तिरपे सुधारा (-1°)">
+                        -1°
+                    </button>
+                    <button type="button" onclick="cropperRotate(1)" class="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition" title="थोडे तिरपे सुधारा (+1°)">
+                        +1°
+                    </button>
+                    <button type="button" onclick="setCropperFreeRatio()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 transition">
+                        <i class="fa-solid fa-expand"></i> मुक्त आकार (Free Size)
+                    </button>
+                </div>
+
+                <!-- Right Actions: Quick Prev/Next Student & Save -->
+                <div class="flex items-center gap-2 ml-auto">
+                    <button type="button" onclick="navigateModalStudent(-1)" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition">
+                        <i class="fa-solid fa-chevron-left"></i> मागील
+                    </button>
+                    <button type="button" onclick="navigateModalStudent(1)" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition">
+                        पुढील <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button type="button" onclick="applyManualCrop()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-check"></i>
+                        <span>क्रॉप सेव्ह करा</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-10 py-4 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>महाराष्ट्र राज्य माध्यमिक व उच्च माध्यमिक शिक्षण मंडळ (SSC / HSC) परीक्षा फॉर्म फोटो व स्वाक्षरी सहाय्यक टूल</p>
+            <p class="text-slate-400">100% सुरक्षित व प्रायव्हेट: सर्व इमेज प्रोसेसिंग तुमच्या ब्राउझरमध्येच होते, कोणताही फोटो सर्व्हरवर अपलोड होत नाही.</p>
+        </div>
+    </footer>
+
+    <!-- Application Script -->
+    <script>
+        /**************************************************************************
+         * GLOBAL STATE & DEFAULT 9-STUDENT DATA (MATCHING USER'S UPLOADED SHEET)
+         **************************************************************************/
+        let sourceSheetImage = null; // HTMLImageElement or Offscreen Canvas holding the current sheet
+        let cropperInstance = null;
+        let currentModalTarget = { studentIndex: 0, type: 'photo' }; // type: 'photo' | 'sign'
+
+        // Default 9 students pre-populated with the exact names/roll nos from the sample form
+        const studentsData = [
+            { id: 1, rollNo: '01', name: 'जय काळे (J. S. Kale)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 2, rollNo: '02', name: 'रोहीत ससाने (R. P. Sasane)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 3, rollNo: '03', name: 'यश ससाने (Y. V. Sasane)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 4, rollNo: '04', name: 'अपेक्षा सपकाळे (A. Sapkale)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 5, rollNo: '05', name: 'सुमित झाल्टे (S. S. Zalte)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 6, rollNo: '06', name: 'शबनम तडवी (S. T. Tadavi)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 7, rollNo: '07', name: 'पुजा कहाते (P. V. Kahate)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 8, rollNo: '08', name: 'श्वेता कहाते (S. N. Kahate)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 },
+            { id: 9, rollNo: '09', name: 'गजानन कंडेलकर (G. S. Kandelkar)', photoBlob: null, photoUrl: '', photoKb: 0, signBlob: null, signUrl: '', signKb: 0 }
+        ];
+
+        /**
+         * Normalized Bounding Boxes (0.0 to 1.0 relative to full sheet width & height)
+         * Carefully calibrated to the exact Maharashtra State Board 3x3 Scan Sheet layout
+         * shown in the user's uploaded sample page!
+         */
+        let cropBoxes = [];
+
+        function getDefaultSSCGridBoxes() {
+            // Calibrated to the 3x3 Maharashtra Board scan form:
+            // Columns: Col 0 (1,4,7), Col 1 (2,5,8), Col 2 (3,6,9)
+            // Rows: Row 0 (1,2,3), Row 1 (4,5,6), Row 2 (7,8,9)
+            const colPhotoX = [0.098, 0.398, 0.706];
+            const rowPhotoY = [0.114, 0.422, 0.728];
+            const photoW = 0.162;
+            const photoH = 0.140;
+
+            const colSignX = [0.068, 0.372, 0.678];
+            const rowSignY = [0.268, 0.576, 0.885];
+            const signW = 0.215;
+            const signH = 0.052;
+
+            const boxes = [];
+            for (let i = 0; i < 9; i++) {
+                const r = Math.floor(i / 3);
+                const c = i % 3;
+                boxes.push({
+                    studentIndex: i,
+                    photo: {
+                        x: colPhotoX[c],
+                        y: rowPhotoY[r],
+                        w: photoW,
+                        h: photoH
+                    },
+                    sign: {
+                        x: colSignX[c],
+                        y: rowSignY[r],
+                        w: signW,
+                        h: signH
+                    }
+                });
+            }
+            return boxes;
+        }
+
+        /**************************************************************************
+         * INITIALIZATION ON PAGE LOAD
+         **************************************************************************/
+        window.onload = function () {
+            cropBoxes = getDefaultSSCGridBoxes();
+            renderStudentCardsStructure();
+            setupDragAndDropUpload();
+            setupInteractiveSheetCanvasEvents();
+
+            // Load a realistic synthetic SSC 9-student scan sheet immediately so user sees how it works
+            loadSampleFormSheet(true);
+        };
+
+        /**************************************************************************
+         * TOAST MESSAGE HELPER (No alert() used anywhere)
+         **************************************************************************/
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const colors = {
+                success: 'bg-emerald-600 text-white border-emerald-700',
+                info: 'bg-indigo-600 text-white border-indigo-700',
+                warning: 'bg-amber-500 text-slate-950 border-amber-600'
+            };
+            const icons = {
+                success: 'fa-circle-check',
+                info: 'fa-circle-info',
+                warning: 'fa-triangle-exclamation'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl border text-xs sm:text-sm font-semibold transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-base"></i><span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3400);
+        }
+
+        /**************************************************************************
+         * GENERATE REALISTIC DEMO SSC 9-STUDENT SCAN SHEET (matches uploaded image)
+         **************************************************************************/
+        function loadSampleFormSheet(isInitial = false) {
+            const demoCanvas = document.createElement('canvas');
+            demoCanvas.width = 1080;
+            demoCanvas.height = 1520;
+            const ctx = demoCanvas.getContext('2d');
+
+            // Paper background with slight scan texture
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, demoCanvas.width, demoCanvas.height);
+
+            // Header Box like Maharashtra State Board Form
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(28, 20, 1024, 1475);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 21px Inter, sans-serif';
+            ctx.fillText('Maharashtra State Board of Secondary and Higher Secondary Education', 60, 50);
+            ctx.font = '600 17px Inter, sans-serif';
+            ctx.fillText('Form to Scan Photograph and Signature of Candidates', 170, 74);
+
+            // Page No Box
+            ctx.strokeRect(805, 25, 235, 55);
+            ctx.font = 'bold 18px Inter, sans-serif';
+            ctx.fillText('Page No.  0  0  1', 825, 60);
+
+            // Horizontal & Vertical Grid Dividers
+            ctx.beginPath();
+            ctx.moveTo(28, 86); ctx.lineTo(1052, 86);
+            ctx.moveTo(355, 86); ctx.lineTo(355, 1495);
+            ctx.moveTo(695, 86); ctx.lineTo(695, 1495);
+            ctx.moveTo(28, 545); ctx.lineTo(1052, 545);
+            ctx.moveTo(28, 1015); ctx.lineTo(1052, 1015);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Colors for sample student portraits
+            const bgColors = ['#dbeafe', '#e0f2fe', '#fce7f3', '#f1f5f9', '#cffafe', '#fee2e2', '#e0e7ff', '#fef3c7', '#f3e8ff'];
+            const shirtColors = ['#4f46e5', '#0284c7', '#f8fafc', '#1e293b', '#ffffff', '#1e3a8a', '#581c87', '#1d4ed8', '#e9d5ff'];
+            const signTexts = ['J. S. Kale', 'R. P. Sasane.', 'Y. V. Sasane', 'Apeksha.', 'S. S. Zalte', 'S. T. Tadavi', 'P. V. Kahate', 'S. N. Kahate', 'G. S. Kandelkar'];
+            const marathiNames = ['जय काळे', 'रोहीत ससाने', 'यश ससाने', 'अपेक्षा सपकाळे', 'सुमित झाल्टे', 'शबनम तडवी', 'पुजा कहाते', 'श्वेता कहाते', 'गजानन कंडेलकर'];
+
+            const defaultBoxes = getDefaultSSCGridBoxes();
+
+            for (let i = 0; i < 9; i++) {
+                const r = Math.floor(i / 3);
+                const c = i % 3;
+                const cellX = 35 + c * 338;
+                const cellY = 95 + r * 462;
+
+                // Section, Roll No, Name labels
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '15px Inter, sans-serif';
+                ctx.fillText(`Section :  Art     Roll No.  0${i + 1}`, cellX + 10, cellY + 25);
+                ctx.fillText(`Name :`, cellX + 10, cellY + 58);
+                ctx.font = 'bold 19px "Noto Sans Devanagari", sans-serif';
+                ctx.fillStyle = '#0f172a';
+                ctx.fillText(marathiNames[i], cellX + 72, cellY + 58);
+
+                // Large Number (1..9) on the left of photo
+                ctx.font = 'bold 42px Inter, sans-serif';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(`${i + 1}`, cellX + 8, cellY + 185);
+
+                // Photo coordinates from calibrated boxes
+                const px = defaultBoxes[i].photo.x * demoCanvas.width;
+                const py = defaultBoxes[i].photo.y * demoCanvas.height;
+                const pw = defaultBoxes[i].photo.w * demoCanvas.width;
+                const ph = defaultBoxes[i].photo.h * demoCanvas.height;
+
+                // Outer frame & photo background
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(px - 6, py - 6, pw + 12, ph + 12);
+
+                ctx.fillStyle = bgColors[i];
+                ctx.fillRect(px, py, pw, ph);
+
+                // Draw realistic student silhouette/avatar inside photo box
+                const centerX = px + pw / 2;
+                const centerY = py + ph / 2;
+
+                // Shoulders / Shirt
+                ctx.fillStyle = shirtColors[i];
+                ctx.beginPath();
+                ctx.ellipse(centerX, py + ph + 10, pw * 0.44, ph * 0.42, 0, Math.PI, 0, false);
+                ctx.fill();
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
+                // Neck
+                ctx.fillStyle = '#d97706';
+                ctx.fillRect(centerX - 14, centerY + 6, 28, 24);
+
+                // Face
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY - 16, 34, 42, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Hair
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY - 38, 36, 22, 0, Math.PI, 0, false);
+                ctx.fill();
+
+                // Eyes & Smile
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(centerX - 12, centerY - 18, 3.2, 0, Math.PI * 2);
+                ctx.arc(centerX + 12, centerY - 18, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY - 4, 10, 0.15 * Math.PI, 0.85 * Math.PI);
+                ctx.strokeStyle = '#7c2d12';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Signature Box
+                const sx = defaultBoxes[i].sign.x * demoCanvas.width;
+                const sy = defaultBoxes[i].sign.y * demoCanvas.height;
+                const sw = defaultBoxes[i].sign.w * demoCanvas.width;
+                const sh = defaultBoxes[i].sign.h * demoCanvas.height;
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(sx, sy, sw, sh);
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 1.2;
+                ctx.strokeRect(sx, sy, sw, sh);
+
+                // Handwritten style signature inside box
+                ctx.save();
+                ctx.fillStyle = '#1e1b4b';
+                ctx.font = 'italic bold 23px Georgia, serif';
+                ctx.fillText(signTexts[i], sx + 22, sy + sh * 0.66);
+                ctx.restore();
+
+                // "Signature within the box" caption
+                ctx.fillStyle = '#334155';
+                ctx.font = '13px Inter, sans-serif';
+                ctx.fillText('Signature within the box', sx + 38, sy + sh + 20);
+            }
+
+            const img = new Image();
+            img.onload = function () {
+                sourceSheetImage = img;
+                cropBoxes = getDefaultSSCGridBoxes();
+                drawInteractiveSheet();
+                reprocessAllCrops();
+                if (!isInitial) {
+                    showToast('नमुना ९-विद्यार्थी SSC फॉर्म यशस्वीरित्या लोड केला आहे!', 'success');
+                }
+            };
+            img.src = demoCanvas.toDataURL('image/jpeg', 0.92);
+        }
+
+        /**************************************************************************
+         * FILE UPLOAD & DRAG-AND-DROP HANDLERS
+         **************************************************************************/
+        function setupDragAndDropUpload() {
+            const dropZone = document.getElementById('dropZone');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evtName => {
+                dropZone.addEventListener(evtName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            ['dragenter', 'dragover'].forEach(evtName => {
+                dropZone.addEventListener(evtName, () => dropZone.classList.add('ring-4', 'ring-blue-300', 'bg-blue-100/70'));
+            });
+
+            ['dragleave', 'drop'].forEach(evtName => {
+                dropZone.addEventListener(evtName, () => dropZone.classList.remove('ring-4', 'ring-blue-300', 'bg-blue-100/70'));
+            });
+
+            dropZone.addEventListener('drop', e => {
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    loadUploadedFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                loadUploadedFile(file);
+            }
+        }
+
+        function loadUploadedFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('कृपया वैध इमेज फाईल (JPG किंवा PNG) निवडा!', 'warning');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    sourceSheetImage = img;
+                    cropBoxes = getDefaultSSCGridBoxes();
+                    drawInteractiveSheet();
+                    reprocessAllCrops();
+                    showToast('तुमचा स्कॅन केलेला फॉर्म अपलोड झाला असून ९ फोटो व ९ सह्या क्रॉप केल्या आहेत!', 'success');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /**************************************************************************
+         * ROTATE UPLOADED SHEET OR RESET GRID
+         **************************************************************************/
+        function rotateMainSheet(degrees) {
+            if (!sourceSheetImage) return;
+            const offCanvas = document.createElement('canvas');
+            const ctx = offCanvas.getContext('2d');
+
+            if (Math.abs(degrees) === 90) {
+                offCanvas.width = sourceSheetImage.height;
+                offCanvas.height = sourceSheetImage.width;
+            } else {
+                offCanvas.width = sourceSheetImage.width;
+                offCanvas.height = sourceSheetImage.height;
+            }
+
+            ctx.translate(offCanvas.width / 2, offCanvas.height / 2);
+            ctx.rotate((degrees * Math.PI) / 180);
+            ctx.drawImage(sourceSheetImage, -sourceSheetImage.width / 2, -sourceSheetImage.height / 2);
+
+            const rotatedImg = new Image();
+            rotatedImg.onload = function () {
+                sourceSheetImage = rotatedImg;
+                drawInteractiveSheet();
+                reprocessAllCrops();
+                showToast(`मुख्य फॉर्म ${degrees}° कोनात फिरवला आहे.`, 'info');
+            };
+            rotatedImg.src = offCanvas.toDataURL('image/jpeg', 0.95);
+        }
+
+        function resetAutoGridBoxes() {
+            cropBoxes = getDefaultSSCGridBoxes();
+            drawInteractiveSheet();
+            reprocessAllCrops();
+            showToast('३×३ ऑटो क्रॉप ग्रीड मूळ स्थितीत रीसेट केले आहे!', 'info');
+        }
+
+        function nudgeAllBoxes(dx, dy) {
+            cropBoxes.forEach(item => {
+                item.photo.x = Math.max(0, Math.min(1 - item.photo.w, item.photo.x + dx));
+                item.photo.y = Math.max(0, Math.min(1 - item.photo.h, item.photo.y + dy));
+                item.sign.x = Math.max(0, Math.min(1 - item.sign.w, item.sign.x + dx));
+                item.sign.y = Math.max(0, Math.min(1 - item.sign.h, item.sign.y + dy));
+            });
+            drawInteractiveSheet();
+            reprocessAllCrops();
+        }
+
+        function scaleAllBoxes(factor, targetType) {
+            cropBoxes.forEach(item => {
+                const box = targetType === 'photo' ? item.photo : item.sign;
+                const centerX = box.x + box.w / 2;
+                const centerY = box.y + box.h / 2;
+                box.w = Math.max(0.04, Math.min(0.32, box.w * factor));
+                box.h = Math.max(0.025, Math.min(0.28, box.h * factor));
+                box.x = Math.max(0, Math.min(1 - box.w, centerX - box.w / 2));
+                box.y = Math.max(0, Math.min(1 - box.h, centerY - box.h / 2));
+            });
+            drawInteractiveSheet();
+            reprocessAllCrops();
+        }
+
+        /**************************************************************************
+         * INTERACTIVE SHEET CANVAS (DRAGGABLE & RESIZABLE 18 OVERLAY BOXES)
+         **************************************************************************/
+        let dragState = null; // { studentIndex, type: 'photo'|'sign', mode: 'move'|'resize', startX, startY, origBox }
+
+        function drawInteractiveSheet() {
+            if (!sourceSheetImage) return;
+            const canvas = document.getElementById('mainSheetCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Render at clean high resolution for crisp manipulation
+            const displayWidth = 650;
+            const aspect = sourceSheetImage.height / sourceSheetImage.width;
+            canvas.width = displayWidth;
+            canvas.height = Math.round(displayWidth * aspect);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(sourceSheetImage, 0, 0, canvas.width, canvas.height);
+
+            // Draw each student's Photo box (Sky Blue) and Signature box (Emerald Green)
+            cropBoxes.forEach((item, idx) => {
+                // 1. Photo Box
+                drawSingleOverlayBox(
+                    ctx,
+                    item.photo,
+                    canvas.width,
+                    canvas.height,
+                    `#${idx + 1} फोटो`,
+                    '#0284c7',
+                    'rgba(2, 132, 199, 0.14)'
+                );
+
+                // 2. Signature Box
+                drawSingleOverlayBox(
+                    ctx,
+                    item.sign,
+                    canvas.width,
+                    canvas.height,
+                    `#${idx + 1} सही`,
+                    '#059669',
+                    'rgba(5, 150, 105, 0.16)'
+                );
+            });
+        }
+
+        function drawSingleOverlayBox(ctx, normBox, cw, ch, label, strokeColor, fillColor) {
+            const x = normBox.x * cw;
+            const y = normBox.y * ch;
+            const w = normBox.w * cw;
+            const h = normBox.h * ch;
+
+            // Shaded interior
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(x, y, w, h);
+
+            // Dashed or solid border
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+
+            // Top-left label pill
+            ctx.fillStyle = strokeColor;
+            const pillW = 54;
+            const pillH = 16;
+            ctx.fillRect(x, Math.max(0, y - pillH), pillW, pillH);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px "Noto Sans Devanagari", Inter, sans-serif';
+            ctx.fillText(label, x + 4, Math.max(11, y - 4));
+
+            // Bottom-right resize handle square
+            const handleSize = 10;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x + w - handleSize, y + h - handleSize, handleSize, handleSize);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + w - handleSize, y + h - handleSize, handleSize, handleSize);
+        }
+
+        function setupInteractiveSheetCanvasEvents() {
+            const canvas = document.getElementById('mainSheetCanvas');
+
+            function getNormalizedPointer(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    nx: (clientX - rect.left) / rect.width,
+                    ny: (clientY - rect.top) / rect.height
+                };
+            }
+
+            function hitTestBox(nx, ny) {
+                const handleTolX = 14 / canvas.width;
+                const handleTolY = 14 / canvas.height;
+
+                // Check in reverse order so top-most drawn is picked
+                for (let i = cropBoxes.length - 1; i >= 0; i--) {
+                    for (const type of ['sign', 'photo']) {
+                        const b = cropBoxes[i][type];
+                        // Check bottom-right resize corner first
+                        if (
+                            nx >= b.x + b.w - handleTolX &&
+                            nx <= b.x + b.w + handleTolX &&
+                            ny >= b.y + b.h - handleTolY &&
+                            ny <= b.y + b.h + handleTolY
+                        ) {
+                            return { studentIndex: i, type, mode: 'resize' };
+                        }
+                        // Check inside box for dragging
+                        if (nx >= b.x && nx <= b.x + b.w && ny >= b.y && ny <= b.y + b.h) {
+                            return { studentIndex: i, type, mode: 'move' };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            const onPointerDown = (e) => {
+                if (!sourceSheetImage) return;
+                const { nx, ny } = getNormalizedPointer(e);
+                const hit = hitTestBox(nx, ny);
+                if (hit) {
+                    e.preventDefault();
+                    const targetBox = cropBoxes[hit.studentIndex][hit.type];
+                    dragState = {
+                        studentIndex: hit.studentIndex,
+                        type: hit.type,
+                        mode: hit.mode,
+                        startX: nx,
+                        startY: ny,
+                        origBox: { ...targetBox }
+                    };
+                }
+            };
+
+            const onPointerMove = (e) => {
+                if (!sourceSheetImage) return;
+                const { nx, ny } = getNormalizedPointer(e);
+
+                if (!dragState) {
+                    const hit = hitTestBox(nx, ny);
+                    if (!hit) {
+                        canvas.style.cursor = 'default';
+                    } else if (hit.mode === 'resize') {
+                        canvas.style.cursor = 'nwse-resize';
+                    } else {
+                        canvas.style.cursor = 'move';
+                    }
+                    return;
+                }
+
+                e.preventDefault();
+                const dx = nx - dragState.startX;
+                const dy = ny - dragState.startY;
+                const b = cropBoxes[dragState.studentIndex][dragState.type];
+
+                if (dragState.mode === 'move') {
+                    b.x = Math.max(0, Math.min(1 - b.w, dragState.origBox.x + dx));
+                    b.y = Math.max(0, Math.min(1 - b.h, dragState.origBox.y + dy));
+                } else if (dragState.mode === 'resize') {
+                    b.w = Math.max(0.04, Math.min(1 - b.x, dragState.origBox.w + dx));
+                    b.h = Math.max(0.02, Math.min(1 - b.y, dragState.origBox.h + dy));
+                }
+
+                drawInteractiveSheet();
+            };
+
+            const onPointerUp = () => {
+                if (dragState) {
+                    const idx = dragState.studentIndex;
+                    const type = dragState.type;
+                    dragState = null;
+                    // Re-crop that specific student's photo or signature immediately
+                    processSingleStudentCrop(idx, type);
+                }
+            };
+
+            canvas.addEventListener('mousedown', onPointerDown);
+            window.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('mouseup', onPointerUp);
+
+            canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+            window.addEventListener('touchmove', onPointerMove, { passive: false });
+            window.addEventListener('touchend', onPointerUp);
+
+            // Double click any box on sheet to open precision manual cropper modal
+            canvas.addEventListener('dblclick', (e) => {
+                const { nx, ny } = getNormalizedPointer(e);
+                const hit = hitTestBox(nx, ny);
+                if (hit) {
+                    openManualCropModal(hit.studentIndex, hit.type);
+                }
+            });
+        }
+
+        /**************************************************************************
+         * RENDER 9 STUDENT CARDS IN THE RIGHT PANEL
+         **************************************************************************/
+        function renderStudentCardsStructure() {
+            const container = document.getElementById('studentsGridContainer');
+            container.innerHTML = '';
+
+            studentsData.forEach((student, idx) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between';
+                card.innerHTML = `
+                    <!-- Card Header: Student Number + Roll No + Name -->
+                    <div class="p-3 bg-slate-800 text-white flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 font-extrabold text-sm flex items-center justify-center shrink-0">
+                            ${student.id}
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-slate-300">Roll No:</span>
+                                <input type="text" value="${student.rollNo}" onchange="updateStudentMeta(${idx}, 'rollNo', this.value)"
+                                    class="w-12 bg-slate-700 text-white text-xs font-bold px-1.5 py-0.5 rounded border border-slate-600 focus:outline-none focus:border-amber-400" />
+                            </div>
+                            <input type="text" value="${student.name}" onchange="updateStudentMeta(${idx}, 'name', this.value)"
+                                placeholder="विद्यार्थ्याचे नाव"
+                                class="w-full mt-1 bg-transparent text-xs font-medium text-slate-200 border-b border-transparent hover:border-slate-600 focus:border-amber-400 focus:outline-none truncate" />
+                        </div>
+                    </div>
+
+                    <!-- Card Body: Photo Preview & Signature Preview -->
+                    <div class="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+                        <!-- PHOTO SECTION (< 40 KB) -->
+                        <div class="p-2.5 rounded-xl bg-sky-50/60 border border-sky-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-sky-950 flex items-center gap-1">
+                                    <i class="fa-solid fa-user text-sky-600"></i> फोटो (Photo)
+                                </span>
+                                <span id="photoKbBadge_${idx}" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    -- KB ✓
+                                </span>
+                            </div>
+
+                            <div class="checkerboard rounded-lg border border-slate-200 h-36 flex items-center justify-center overflow-hidden p-1 bg-white">
+                                <img id="photoPreviewImg_${idx}" src="" alt="Student ${student.id} Photo" class="max-h-full max-w-full object-contain rounded shadow-sm" />
+                            </div>
+
+                            <div class="mt-2.5 flex items-center gap-1.5">
+                                <button type="button" onclick="openManualCropModal(${idx}, 'photo')"
+                                    class="flex-1 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold py-1.5 px-2.5 rounded-lg transition flex items-center justify-center gap-1 shadow-sm">
+                                    <i class="fa-solid fa-crop-simple"></i>
+                                    <span>मॅन्युअल क्रॉप</span>
+                                </button>
+                                <button type="button" onclick="downloadSingleItem(${idx}, 'photo')" title="फक्त हा फोटो डाउनलोड करा"
+                                    class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold py-1.5 px-2.5 rounded-lg transition">
+                                    <i class="fa-solid fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- SIGNATURE SECTION (< 10 KB) -->
+                        <div class="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-emerald-950 flex items-center gap-1">
+                                    <i class="fa-solid fa-signature text-emerald-600"></i> स्वाक्षरी (Signature)
+                                </span>
+                                <span id="signKbBadge_${idx}" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    -- KB ✓
+                                </span>
+                            </div>
+
+                            <div class="checkerboard rounded-lg border border-slate-200 h-16 flex items-center justify-center overflow-hidden p-1 bg-white">
+                                <img id="signPreviewImg_${idx}" src="" alt="Student ${student.id} Signature" class="max-h-full max-w-full object-contain rounded" />
+                            </div>
+
+                            <div class="mt-2.5 flex items-center gap-1.5">
+                                <button type="button" onclick="openManualCropModal(${idx}, 'sign')"
+                                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 px-2.5 rounded-lg transition flex items-center justify-center gap-1 shadow-sm">
+                                    <i class="fa-solid fa-crop-simple"></i>
+                                    <span>मॅन्युअल क्रॉप</span>
+                                </button>
+                                <button type="button" onclick="downloadSingleItem(${idx}, 'sign')" title="फक्त ही स्वाक्षरी डाउनलोड करा"
+                                    class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold py-1.5 px-2.5 rounded-lg transition">
+                                    <i class="fa-solid fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateStudentMeta(idx, field, value) {
+            studentsData[idx][field] = value.trim() || (field === 'rollNo' ? `0${idx + 1}` : `Student_${idx + 1}`);
+        }
+
+        /**************************************************************************
+         * STRICT KB SIZE COMPRESSION ENGINE (< 40 KB Photos & < 10 KB Signatures)
+         **************************************************************************/
+        async function compressCanvasToMaxKB(sourceCanvas, maxKB, targetWidth, targetHeight, enhanceContrast = false) {
+            let workWidth = targetWidth;
+            let workHeight = targetHeight;
+            const maxBytes = Math.floor(maxKB * 1024);
+
+            const tempCanvas = document.createElement('canvas');
+            const ctx = tempCanvas.getContext('2d');
+
+            // Try progressive quality & dimension scaling until strictly <= maxBytes
+            for (let scaleAttempt = 0; scaleAttempt < 4; scaleAttempt++) {
+                tempCanvas.width = workWidth;
+                tempCanvas.height = workHeight;
+
+                // Fill white background for JPEG
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, workWidth, workHeight);
+                ctx.drawImage(sourceCanvas, 0, 0, workWidth, workHeight);
+
+                if (enhanceContrast) {
+                    applySignatureEnhancement(ctx, workWidth, workHeight);
+                }
+
+                // Binary search / step-down quality from 0.92 down to 0.15
+                for (let q = 0.92; q >= 0.14; q -= 0.06) {
+                    const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg', q));
+                    if (blob && blob.size <= maxBytes) {
+                        return blob;
+                    }
+                }
+
+                // If still larger than maxBytes even at low quality, scale dimensions down by 15%
+                workWidth = Math.max(80, Math.round(workWidth * 0.85));
+                workHeight = Math.max(35, Math.round(workHeight * 0.85));
+            }
+
+            // Final fallback at lowest setting
+            return new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg', 0.12));
+        }
+
+        function applySignatureEnhancement(ctx, width, height) {
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            // Increase contrast so ink is crisp dark and paper background is bright clean white
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                if (lum > 185) {
+                    data[i] = 255;
+                    data[i + 1] = 255;
+                    data[i + 2] = 255;
+                } else {
+                    const darkened = Math.max(0, (lum - 40) * 0.65);
+                    data[i] = darkened;
+                    data[i + 1] = darkened;
+                    data[i + 2] = Math.min(255, darkened + 25); // slight blue/black pen tone
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        /**************************************************************************
+         * CROP PROCESSING FOR ALL 9 STUDENTS OR INDIVIDUAL STUDENT
+         **************************************************************************/
+        async function reprocessAllCrops(showNotification = false) {
+            if (!sourceSheetImage) return;
+            for (let i = 0; i < 9; i++) {
+                await processSingleStudentCrop(i, 'photo');
+                await processSingleStudentCrop(i, 'sign');
+            }
+            updateGlobalStatusCounters();
+            if (showNotification) {
+                showToast('सर्व ९ फोटो (< 40 KB) आणि ९ स्वाक्षऱ्या (< 10 KB) अपडेट झाल्या आहेत!', 'success');
+            }
+        }
+
+        async function processSingleStudentCrop(studentIndex, type, customSourceCanvas = null) {
+            if (!sourceSheetImage && !customSourceCanvas) return;
+
+            let rawCropCanvas = customSourceCanvas;
+
+            if (!rawCropCanvas) {
+                const normBox = cropBoxes[studentIndex][type];
+                const sx = Math.round(normBox.x * sourceSheetImage.width);
+                const sy = Math.round(normBox.y * sourceSheetImage.height);
+                const sw = Math.max(10, Math.round(normBox.w * sourceSheetImage.width));
+                const sh = Math.max(10, Math.round(normBox.h * sourceSheetImage.height));
+
+                rawCropCanvas = document.createElement('canvas');
+                rawCropCanvas.width = sw;
+                rawCropCanvas.height = sh;
+                const ctx = rawCropCanvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, sw, sh);
+                ctx.drawImage(sourceSheetImage, sx, sy, sw, sh, 0, 0, sw, sh);
+            }
+
+            if (type === 'photo') {
+                const maxPhotoKB = parseFloat(document.getElementById('photoMaxKbSelect').value) || 38;
+                const [tw, th] = document.getElementById('photoDimSelect').value.split('x').map(Number);
+
+                const blob = await compressCanvasToMaxKB(rawCropCanvas, maxPhotoKB, tw, th, false);
+                if (studentsData[studentIndex].photoUrl) {
+                    URL.revokeObjectURL(studentsData[studentIndex].photoUrl);
+                }
+                const url = URL.createObjectURL(blob);
+                const kb = +(blob.size / 1024).toFixed(1);
+
+                studentsData[studentIndex].photoBlob = blob;
+                studentsData[studentIndex].photoUrl = url;
+                studentsData[studentIndex].photoKb = kb;
+
+                const imgEl = document.getElementById(`photoPreviewImg_${studentIndex}`);
+                const badgeEl = document.getElementById(`photoKbBadge_${studentIndex}`);
+                if (imgEl) imgEl.src = url;
+                if (badgeEl) {
+                    badgeEl.textContent = `${kb} KB ✓`;
+                    badgeEl.className = kb <= 40
+                        ? 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300';
+                }
+            } else {
+                const maxSignKB = parseFloat(document.getElementById('signMaxKbSelect').value) || 9.2;
+                const [tw, th] = document.getElementById('signDimSelect').value.split('x').map(Number);
+                const enhance = document.getElementById('enhanceSignContrast').checked;
+
+                const blob = await compressCanvasToMaxKB(rawCropCanvas, maxSignKB, tw, th, enhance);
+                if (studentsData[studentIndex].signUrl) {
+                    URL.revokeObjectURL(studentsData[studentIndex].signUrl);
+                }
+                const url = URL.createObjectURL(blob);
+                const kb = +(blob.size / 1024).toFixed(1);
+
+                studentsData[studentIndex].signBlob = blob;
+                studentsData[studentIndex].signUrl = url;
+                studentsData[studentIndex].signKb = kb;
+
+                const imgEl = document.getElementById(`signPreviewImg_${studentIndex}`);
+                const badgeEl = document.getElementById(`signKbBadge_${studentIndex}`);
+                if (imgEl) imgEl.src = url;
+                if (badgeEl) {
+                    badgeEl.textContent = `${kb} KB ✓`;
+                    badgeEl.className = kb <= 10
+                        ? 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300';
+                }
+            }
+
+            updateGlobalStatusCounters();
+        }
+
+        function updateGlobalStatusCounters() {
+            const validPhotos = studentsData.filter(s => s.photoBlob && s.photoKb <= 40).length;
+            const validSigns = studentsData.filter(s => s.signBlob && s.signKb <= 10).length;
+
+            document.getElementById('headerPhotoStatus').textContent = `${validPhotos}/9 (<40KB)`;
+            document.getElementById('headerSignStatus').textContent = `${validSigns}/9 (<10KB)`;
+            document.getElementById('bottomSummaryText').textContent = `तयार: ${validPhotos}/9 फोटो (< 40 KB) आणि ${validSigns}/9 स्वाक्षरी (< 10 KB)`;
+
+            const topBtn = document.getElementById('topDownloadZipBtn');
+            if (validPhotos === 9 && validSigns === 9) {
+                topBtn.disabled = false;
+            }
+        }
+
+        /**************************************************************************
+         * PRECISION MANUAL CROPPER MODAL (CROPPER.JS)
+         **************************************************************************/
+        function openManualCropModal(studentIndex, type) {
+            if (!sourceSheetImage) {
+                showToast('कृपया आधी फॉर्मची इमेज अपलोड करा!', 'warning');
+                return;
+            }
+
+            currentModalTarget = { studentIndex, type };
+            const student = studentsData[studentIndex];
+
+            const modal = document.getElementById('manualCropModal');
+            const modalBadge = document.getElementById('modalBadge');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalSubtitle = document.getElementById('modalSubtitle');
+            const modalImg = document.getElementById('cropperModalImage');
+
+            const isPhoto = type === 'photo';
+            modalBadge.textContent = `विद्यार्थी #${student.id} (Roll No: ${student.rollNo})`;
+            modalBadge.className = isPhoto
+                ? 'px-2.5 py-1 rounded-lg bg-sky-500 text-white font-bold text-xs'
+                : 'px-2.5 py-1 rounded-lg bg-emerald-500 text-white font-bold text-xs';
+
+            modalTitle.textContent = isPhoto
+                ? `${student.name} - मॅन्युअल फोटो क्रॉपिंग (< 40 KB)`
+                : `${student.name} - मॅन्युअल स्वाक्षरी क्रॉपिंग (< 10 KB)`;
+
+            modalSubtitle.textContent = isPhoto
+                ? 'फोटोभोवतीचा चौकोन अचूक सेट करा. सेव्ह केल्यावर फोटो आपोआप 40 KB च्या आत कॉम्प्रेस होईल.'
+                : 'स्वाक्षरीभोवतीचा चौकोन अचूक सेट करा. सेव्ह केल्यावर स्वाक्षरी आपोआप 10 KB च्या आत कॉम्प्रेस होईल.';
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            if (cropperInstance) {
+                cropperInstance.destroy();
+                cropperInstance = null;
+            }
+
+            modalImg.src = sourceSheetImage.src;
+            modalImg.onload = function () {
+                if (cropperInstance) cropperInstance.destroy();
+
+                const normBox = cropBoxes[studentIndex][type];
+                const initData = {
+                    x: normBox.x * sourceSheetImage.naturalWidth,
+                    y: normBox.y * sourceSheetImage.naturalHeight,
+                    width: normBox.w * sourceSheetImage.naturalWidth,
+                    height: normBox.h * sourceSheetImage.naturalHeight,
+                    rotate: 0
+                };
+
+                cropperInstance = new Cropper(modalImg, {
+                    viewMode: 1,
+                    dragMode: 'move',
+                    autoCropArea: 0.8,
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: true,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    data: initData
+                });
+            };
+        }
+
+        function closeManualCropModal() {
+            const modal = document.getElementById('manualCropModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (cropperInstance) {
+                cropperInstance.destroy();
+                cropperInstance = null;
+            }
+        }
+
+        function cropperZoom(ratio) {
+            if (cropperInstance) cropperInstance.zoom(ratio);
+        }
+
+        function cropperRotate(deg) {
+            if (cropperInstance) cropperInstance.rotate(deg);
+        }
+
+        function setCropperFreeRatio() {
+            if (cropperInstance) cropperInstance.setAspectRatio(NaN);
+        }
+
+        async function applyManualCrop() {
+            if (!cropperInstance) return;
+            const { studentIndex, type } = currentModalTarget;
+
+            // Update normalized box coordinates if unrotated so sheet preview stays in sync
+            const data = cropperInstance.getData();
+            if (data.rotate === 0 && sourceSheetImage) {
+                cropBoxes[studentIndex][type] = {
+                    x: Math.max(0, data.x / sourceSheetImage.naturalWidth),
+                    y: Math.max(0, data.y / sourceSheetImage.naturalHeight),
+                    w: Math.min(1, data.width / sourceSheetImage.naturalWidth),
+                    h: Math.min(1, data.height / sourceSheetImage.naturalHeight)
+                };
+                drawInteractiveSheet();
+            }
+
+            const croppedCanvas = cropperInstance.getCroppedCanvas({
+                fillColor: '#ffffff',
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high'
+            });
+
+            await processSingleStudentCrop(studentIndex, type, croppedCanvas);
+            closeManualCropModal();
+            showToast(`विद्यार्थी #${studentIndex + 1} ची ${type === 'photo' ? 'फोटो' : 'स्वाक्षरी'} यशस्वीरित्या क्रॉप केली!`, 'success');
+        }
+
+        async function navigateModalStudent(direction) {
+            if (cropperInstance) {
+                // Save current before moving to next/prev
+                const { studentIndex, type } = currentModalTarget;
+                const croppedCanvas = cropperInstance.getCroppedCanvas({ fillColor: '#ffffff' });
+                await processSingleStudentCrop(studentIndex, type, croppedCanvas);
+            }
+            let nextIndex = (currentModalTarget.studentIndex + direction + 9) % 9;
+            openManualCropModal(nextIndex, currentModalTarget.type);
+        }
+
+        /**************************************************************************
+         * FILE NAMING HELPER & SINGLE / ZIP (18 FILES) DOWNLOAD
+         **************************************************************************/
+        function getFormattedFileName(studentIndex, type) {
+            const student = studentsData[studentIndex];
+            const pattern = document.getElementById('fileNamingPattern').value;
+            const cleanRoll = (student.rollNo || `0${student.id}`).replace(/[^a-zA-Z0-9_-]/g, '');
+            const cleanName = (student.name || `Student_${student.id}`)
+                .replace(/[^\w\s-]/g, '')
+                .trim()
+                .replace(/\s+/g, '_') || `Student_${student.id}`;
+            const suffix = type === 'photo' ? 'Photo' : 'Sign';
+
+            if (pattern === 'num_type') {
+                return `${student.id}_${suffix}.jpg`;
+            } else if (pattern === 'name_type') {
+                return `${cleanRoll}_${cleanName}_${suffix}.jpg`;
+            } else if (pattern === 'folders') {
+                const folder = type === 'photo' ? 'Photos' : 'Signatures';
+                return `${folder}/${cleanRoll}_${suffix}.jpg`;
+            }
+            // Default: roll_type
+            return `${cleanRoll}_${suffix}.jpg`;
+        }
+
+        function downloadSingleItem(studentIndex, type) {
+            const student = studentsData[studentIndex];
+            const url = type === 'photo' ? student.photoUrl : student.signUrl;
+            if (!url) return;
+
+            const rawName = getFormattedFileName(studentIndex, type).split('/').pop();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = rawName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        async function downloadAllAsZip() {
+            const zip = new JSZip();
+            const batchNameInput = document.getElementById('pageBatchName').value.trim() || 'SSC_Page_001';
+            const cleanZipName = batchNameInput.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+            let count = 0;
+            for (let i = 0; i < studentsData.length; i++) {
+                const st = studentsData[i];
+                if (st.photoBlob) {
+                    const photoFileName = getFormattedFileName(i, 'photo');
+                    zip.file(photoFileName, st.photoBlob);
+                    count++;
+                }
+                if (st.signBlob) {
+                    const signFileName = getFormattedFileName(i, 'sign');
+                    zip.file(signFileName, st.signBlob);
+                    count++;
+                }
+            }
+
+            if (count === 0) {
+                showToast('डाउनलोड करण्यासाठी कोणतेही फोटो किंवा स्वाक्षरी उपलब्ध नाहीत!', 'warning');
+                return;
+            }
+
+            showToast('१८ इमेजेसची ZIP फाईल तयार होत आहे, कृपया थांबा...', 'info');
+
+            try {
+                const content = await zip.generateAsync({ type: 'blob' });
+                const zipUrl = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = zipUrl;
+                a.download = `${cleanZipName}_18_Images.zip`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(zipUrl), 4000);
+
+                showToast(`यशस्वी! ${count} इमेजेस (९ फोटो <40KB व ९ सह्या <10KB) ची ZIP डाउनलोड झाली आहे!`, 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('ZIP फाईल तयार करताना तांत्रिक अडचण आली.', 'warning');
+            }
+        }
+    </script>
+</body>
+</html>
